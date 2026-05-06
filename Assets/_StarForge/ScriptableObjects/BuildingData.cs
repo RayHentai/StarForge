@@ -1,12 +1,6 @@
 // Assets/_StarForge/ScriptableObjects/BuildingData.cs
-// 这是一个 ScriptableObject，用来存储建筑的配置数据
-// 使用方式：在 Unity 里右键 → Create → StarForge → Building Data
-//           创建出来的文件就是一个"采集器配置"，在 Inspector 里填写数值
-//
-// ── 为什么用 ScriptableObject 而不是直接写在代码里？ ──────
-//   1. 数据和逻辑分离：改数值不用动代码，不用重新编译
-//   2. 策划友好：直接在 Inspector 里调整，所见即所得
-//   3. 复用性强：一份代码，十几种建筑配置，每种配置一个文件
+// 建筑配置数据，通过 ScriptableObject 在 Inspector 里填写
+// 右键 → Create → StarForge → Building Data
 
 using UnityEngine;
 
@@ -14,25 +8,58 @@ using UnityEngine;
 public class BuildingData : ScriptableObject
 {
     [Header("基本信息")]
-    public string buildingId;           // 唯一ID，如 "collector_basic"
-    public string displayName;          // 显示名称，如 "基础采集器"
-    [TextArea] public string description; // 描述文字
+    public string buildingId;
+    public string displayName;
+    [TextArea] public string description;
 
-    [Header("建造费用（消耗的资源）")]
-    public ResourceCost[] costs;        // 支持多种资源同时消耗
+    [Header("建造费用")]
+    public ResourceCost[] costs;
 
-    [Header("产出设置")]
-    public string outputResourceId;     // 产出的资源ID
-    public float outputPerSecond;       // 每秒产出量
+    [Header("资源产出（留空则无产出）")]
+    public string outputResourceId;
+    public float outputPerSecond;
+
+    // ── 电力配置 ─────────────────────────────────────────
+    [Header("电力配置")]
+    [Tooltip("发电量（A）。发电机填此项，普通建筑填0")]
+    public float powerGeneration = 0f;
+
+    [Tooltip("用电需求（A）。电力建筑填此项，燃料建筑填0")]
+    public float powerDemand = 0f;
+
+    // ── 燃料配置 ─────────────────────────────────────────
+    [Header("燃料配置")]
+    [Tooltip("是否为燃料驱动建筑（早期过渡，不消耗电力）")]
+    public bool isFuelPowered = false;
+
+    [Tooltip("燃料建筑的用电当量（A）。决定燃料消耗速度：热值/此值=运行秒数）")]
+    public float fuelDemandEquivalent = 1f;
+
+    // ── 污染配置 ─────────────────────────────────────────
+    [Header("污染配置")]
+    [Tooltip("建筑运行时每秒产生的污染值。燃料建筑填高，电力建筑填低，净化建筑填负数")]
+    public float pollutionPerSecond = 0f;
 
     [Header("限制")]
-    public int maxCount = 999;          // 最多可建造几个（-1 = 无限）
+    public int maxCount = 999;
 
-    // ── 嵌套类：单项费用 ────────────────────────────────────
+    // ── 嵌套类 ───────────────────────────────────────────
     [System.Serializable]
     public class ResourceCost
     {
-        public string resourceId;       // 消耗的资源ID
-        public float amount;            // 消耗数量
+        public string resourceId;
+        public float amount;
+    }
+
+    // ── 编辑器辅助：在 Inspector 里显示建筑类型标签 ──────
+    public string BuildingType
+    {
+        get
+        {
+            if (powerGeneration > 0) return "发电机";
+            if (isFuelPowered)       return "燃料建筑";
+            if (powerDemand > 0)     return "电力建筑";
+            return "基础建筑";
+        }
     }
 }
