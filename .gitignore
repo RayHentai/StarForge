@@ -1,0 +1,44 @@
+# Unity 自动生成的文件夹，不需要上传
+/Library/
+/Temp/
+/Obj/
+/Build/
+/Builds/
+/Logs/
+/UserSettings/
+/MemoryCaptures/
+/Recordings/
+
+# Unity 自动生成的元文件（本地有就够了）
+# 注意：.meta 文件要保留！不要忽略它们
+*.tmp
+
+# VS / Rider 生成的文件
+.vs/
+*.csproj
+*.sln
+*.suo
+*.user
+*.userprefs
+
+# macOS 系统文件
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows 系统文件
+Thumbs.db
+Desktop.ini
+
+# JetBrains Rider
+.idea/
+
+# Cursor / VSCode
+.vscode/
+
+# 打包输出（不上传构建结果）
+/[Bb]uild/
+/[Bb]uilds/
+
+# Crashlytics
+crashlytics-build.properties
