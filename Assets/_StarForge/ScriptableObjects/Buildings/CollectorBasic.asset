@@ -16,8 +16,13 @@ MonoBehaviour:
   displayName: "\u57FA\u7840\u91C7\u96C6\u5668"
   description: 
   costs:
-  - resourceId: raw_a
+  - resourceId: ore_coal
     amount: 10
-  outputResourceId: raw_a
+  outputResourceId: ore_coal
   outputPerSecond: 1
+  powerGeneration: 0
+  powerDemand: 0
+  isFuelPowered: 0
+  fuelDemandEquivalent: 1
+  pollutionPerSecond: 0
   maxCount: 999

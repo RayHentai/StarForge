@@ -175,6 +175,11 @@ public class ResourceManager : MonoBehaviour
 
             // ══ 特殊资源 ═══════════════════════════════════════
             new() { id="core_shard",   displayName="星核碎片", tier=ResourceTier.Special },
+
+            //测试
+            new() { id="crushed_iron", displayName="粉碎铁矿石", tier=ResourceTier.Powder },
+            new() { id="res_stone", displayName="石材", tier=ResourceTier.Natural },
+            
         };
 
         foreach (var r in resources)

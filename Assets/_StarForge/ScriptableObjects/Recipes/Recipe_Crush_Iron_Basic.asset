@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ef8a033fdb35c243bff569c4edfbc0d, type: 3}
+  m_Name: Recipe_Crush_Iron_Basic
+  m_EditorClassIdentifier: Assembly-CSharp::RecipeData
+  recipeId: crush_iron_basic
+  displayName: "\u7C89\u788E\u94C1\u77FF\u77F3"
+  description: 
+  allowedMachines: 00000000
+  requiredTechId: 
+  processingTime: 2
+  inputs:
+  - resourceId: resourceId=ore_iron
+    amount: 1
+  output:
+    resourceId: crushed_iron
+    amount: 2
+  byproducts:
+  - resourceId: res_stone
+    amount: 1
+    probability: 1
