@@ -14,6 +14,15 @@
 // Normal  ：矿石类，每次点击固定产出，受矿藏量限制
 // Terrain ：地形资源，产出量受 terrainScale 影响，
 //           水无限，原油/熔岩受矿藏量限制
+//
+// ── 产出资源区分（Normal 模式） ───────────────────────────
+// 同一采集点根据采集方式产出不同资源：
+//   玩家点击 / 燃料驱动采矿机 → outputResourceId（如 crushed_iron / gem_ruby）
+//   电力采矿机               → electricOutputResourceId（如 ore_iron）
+//   electricOutputResourceId 留空时，电力采矿机也使用 outputResourceId
+//
+// resourceId 仅用于矿藏量（deposit）计算，不再作为产出 ID。
+// Terrain 模式不区分产出，始终产出 resourceId 对应资源（原逻辑不变）。
 
 using UnityEngine;
 using TMPro;
@@ -24,7 +33,26 @@ public class ClickCollector : MonoBehaviour
 
     [Header("采集点配置")]
     public CollectMode mode = CollectMode.Normal;
+
+    /// <summary>
+    /// 矿藏 ID。仅用于查询/消耗矿藏储量（deposit），不作为任何产出资源的 ID。
+    /// Terrain 模式下同时作为产出 ID（保持原逻辑）。
+    /// </summary>
     public string resourceId = "ore_iron";
+
+    /// <summary>
+    /// 【Normal 模式】玩家点击 / 燃料驱动采矿机的产出资源 ID。
+    /// 例：矿石节点填 crushed_iron，宝石节点填 gem_ruby。
+    /// </summary>
+    public string outputResourceId = "";
+
+    /// <summary>
+    /// 【Normal 模式】电力采矿机的产出资源 ID。
+    /// 留空时自动回退到 outputResourceId。
+    /// 例：填 ore_iron 表示电力采矿机产出精矿。
+    /// </summary>
+    public string electricOutputResourceId = "";
+
     public float collectAmountPerClick = 1f;
     public float clickCooldown = 0.2f;
 
@@ -73,24 +101,34 @@ public class ClickCollector : MonoBehaviour
         }
 
         float amount = collectAmountPerClick;
-        if (mode == CollectMode.Terrain) amount *= terrainScale;
 
-        // 消耗矿藏储量（ResourceManager 记录世界数据）
-        ConsumeDeposit(amount);
+        if (mode == CollectMode.Terrain)
+        {
+            // Terrain 模式：产出资源本身，产出量受 terrainScale 影响
+            amount *= terrainScale;
+            ConsumeDeposit(amount);
+            InventoryManager.Instance.Add(resourceId, amount);
+            ShowFloatingText($"+{amount} {ResourceManager.Instance.GetDisplayName(resourceId)}");
+        }
+        else
+        {
+            // Normal 模式：玩家点击产出 outputResourceId 对应资源
+            string outId = ResolveOutputId(false);
+            ConsumeDeposit(amount);
+            InventoryManager.Instance.Add(outId, amount);
+            ShowFloatingText($"+{amount} {ResourceManager.Instance.GetDisplayName(outId)}");
+        }
 
-        // 产物进玩家背包
-        InventoryManager.Instance.Add(resourceId, amount);
-
-        ShowFloatingText($"+{amount} {ResourceManager.Instance.GetDisplayName(resourceId)}");
         StartCoroutine(BounceEffect());
     }
 
     // ─────────────────────────────────────────────────────
-    //  机器自动采集 API（TerrainExtractor 调用）
+    //  机器自动采集 API
     // ─────────────────────────────────────────────────────
 
     /// <summary>
-    /// 机器每帧/每秒调用，尝试向内部缓存注入资源。
+    /// 燃料驱动采矿机（暂定名）每帧/每秒调用，尝试向内部缓存注入资源。
+    /// 产出使用 outputResourceId（与玩家点击一致）。
     /// 缓存满 → 返回 false，机器停机等待。
     /// </summary>
     public bool AutoCollect(float amount)
@@ -107,15 +145,39 @@ public class ClickCollector : MonoBehaviour
     }
 
     /// <summary>
+    /// 电力采矿机每帧/每秒调用，尝试向内部缓存注入资源。
+    /// 产出使用 electricOutputResourceId；留空时回退到 outputResourceId。
+    /// 缓存满 → 返回 false，机器停机等待。
+    /// </summary>
+    public bool AutoCollectElectric(float amount)
+    {
+        if (IsBufferFull) return false;
+        if (!IsRenewable() && ResourceManager.Instance.GetDepositAmount(resourceId) <= 0)
+            return false;
+
+        float actual = Mathf.Min(amount, bufferCapacity - currentBuffer);
+        ConsumeDeposit(actual);
+        currentBuffer += actual;
+        OnBufferChanged?.Invoke(currentBuffer);
+        return true;
+    }
+
+    /// <summary>
     /// 机器/物流从缓存取货，进玩家背包（当前阶段）。
+    /// isElectric 为 true 时按电力产出 ID 结算，否则按普通产出 ID 结算。
     /// 返回实际取出的数量。
     /// </summary>
-    public float PullFromBuffer(float amount)
+    public float PullFromBuffer(float amount, bool isElectric = false)
     {
         float actual = Mathf.Min(amount, currentBuffer);
         if (actual <= 0) return 0;
+
+        string outId = mode == CollectMode.Terrain
+            ? resourceId
+            : ResolveOutputId(isElectric);
+
         currentBuffer -= actual;
-        InventoryManager.Instance.Add(resourceId, actual);
+        InventoryManager.Instance.Add(outId, actual);
         OnBufferChanged?.Invoke(currentBuffer);
         return actual;
     }
@@ -123,6 +185,24 @@ public class ClickCollector : MonoBehaviour
     // ─────────────────────────────────────────────────────
     //  内部工具
     // ─────────────────────────────────────────────────────
+
+    /// <summary>
+    /// 解析实际产出资源 ID（仅 Normal 模式使用）。
+    /// isElectric = true → electricOutputResourceId，留空则回退到 outputResourceId。
+    /// isElectric = false → outputResourceId。
+    /// outputResourceId 本身也留空时，作为最终兜底回退到 resourceId（向后兼容旧数据）。
+    /// </summary>
+    string ResolveOutputId(bool isElectric)
+    {
+        if (isElectric && !string.IsNullOrEmpty(electricOutputResourceId))
+            return electricOutputResourceId;
+
+        if (!string.IsNullOrEmpty(outputResourceId))
+            return outputResourceId;
+
+        // 兜底：旧采集点未填写 outputResourceId 时行为不变
+        return resourceId;
+    }
 
     bool IsRenewable()
     {
